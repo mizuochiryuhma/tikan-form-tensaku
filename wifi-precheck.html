@@ -187,7 +187,7 @@
       await navigator.clipboard.writeText(text);
       alert('結果をコピーしました');
     });
-
+    runBtn.addEventListener('click', runChecks);
     window.addEventListener('online', setTerminalInfo);
     window.addEventListener('offline', setTerminalInfo);
     setTerminalInfo();
