@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>授業前通信チェック</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f6f7fb; color: #111; }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 20px; }
+    .card { background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 4px 14px rgba(0,0,0,.08); margin-bottom: 16px; }
+    h1, h2 { margin: 0 0 12px; }
+    .muted { color: #555; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    button { padding: 10px 14px; border: none; border-radius: 10px; cursor: pointer; font-size: 16px; }
+    .primary { background: #1d4ed8; color: #fff; }
+    .secondary { background: #e5e7eb; color: #111; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 10px; text-align: left; font-size: 14px; vertical-align: top; }
+    .ok { color: #15803d; font-weight: 700; }
+    .ng { color: #b91c1c; font-weight: 700; }
+    .warn { color: #b45309; font-weight: 700; }
+    code { background: #f3f4f6; padding: 2px 6px; border-radius: 6px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <h1>授業前通信チェック</h1>
+      <p class="muted">このページは、授業で使う本体アプリの前に、端末の通信状態と送信先への到達性を簡易確認するためのものです。</p>
+      <div class="row">
+        <button class="primary" id="runBtn">チェック開始</button>
+        <button class="secondary" id="copyBtn">結果をコピー</button>
+      </div>
+      <p class="muted" id="timeText">未実行</p>
+    </section>
+
+    <section class="card">
+      <h2>端末の状態</h2>
+      <table>
+        <tbody>
+          <tr><th>オンライン判定</th><td id="onlineState">-</td></tr>
+          <tr><th>ユーザーエージェント</th><td id="uaText" class="mono">-</td></tr>
+          <tr><th>接続情報</th><td id="netInfo" class="mono">-</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>到達確認</h2>
+      <table>
+        <thead>
+          <tr><th>項目</th><th>結果</th><th>応答時間</th><th>メモ</th></tr>
+        </thead>
+        <tbody id="resultBody"></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>判定の見方</h2>
+      <ul>
+        <li><b>本体ページOK / GASテストOK</b> なら、授業実施可能性は高めです。</li>
+        <li><b>本体ページOK / GASテストNG</b> なら、送信先だけが止まっている可能性があります。</li>
+        <li><b>オンラインが不安定</b> なら、Wi-Fiまたは校内ネットワーク側を疑います。</li>
+        <li><b>一部端末だけNG</b> なら、端末側のログイン状態や設定も疑います。</li>
+      </ul>
+    </section>
+  </main>
+
+  <script>
+    const APP_URL = 'https://mizuochiryuhma.github.io/tikan-form/';
+    const GAS_TEST_URL = 'https://script.google.com/a/macros/gs.nein.ed.jp/s/AKfycbwUvEZu7Kuiq7VQ1URKwrhFO-FU1rvbF7jiexR0qQ1zIaem3PXJsp0HxqUHi5T2VHk2ZA/exec?test=1';
+
+    const runBtn = document.getElementById('runBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const timeText = document.getElementById('timeText');
+    const onlineState = document.getElementById('onlineState');
+    const uaText = document.getElementById('uaText');
+    const netInfo = document.getElementById('netInfo');
+    const resultBody = document.getElementById('resultBody');
+
+    function setTerminalInfo() {
+      onlineState.textContent = navigator.onLine ? 'online' : 'offline';
+      uaText.textContent = navigator.userAgent;
+
+      const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (!c) {
+        netInfo.textContent = '取得不可';
+        return;
+      }
+      netInfo.textContent = [
+        `effectiveType: ${c.effectiveType || '不明'}`,
+        `downlink: ${c.downlink || '不明'}`,
+        `rtt: ${c.rtt || '不明'}`,
+        `saveData: ${String(c.saveData)}`
+      ].join('\n');
+    }
+
+    function addRow(name, status, ms, note) {
+      const tr = document.createElement('tr');
+      const cls = status === 'OK' ? 'ok' : status === 'NG' ? 'ng' : 'warn';
+      tr.innerHTML = `
+        <td>${name}</td>
+        <td class="${cls}">${status}</td>
+        <td>${ms ?? '-'}</td>
+        <td>${note || ''}</td>
+      `;
+      resultBody.appendChild(tr);
+    }
+
+    async function timedFetch(url, options = {}) {
+      const start = performance.now();
+      const res = await fetch(url, { cache: 'no-store', ...options });
+      const ms = Math.round(performance.now() - start);
+      return { res, ms };
+    }
+
+    function timeoutPromise(ms = 10000) {
+      return new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms));
+    }
+
+    async function checkAppTop() {
+      try {
+        const { res, ms } = await Promise.race([
+          timedFetch(APP_URL, { method: 'GET', mode: 'cors' }),
+          timeoutPromise(10000)
+        ]);
+        addRow('本体ページ', res.ok ? 'OK' : 'NG', `${ms} ms`, `status: ${res.status}`);
+      } catch (e) {
+        addRow('本体ページ', 'NG', '-', e.message);
+      }
+    }
+
+    async function checkGasTest() {
+      try {
+        const { res, ms } = await Promise.race([
+          timedFetch(GAS_TEST_URL, { method: 'GET', mode: 'cors' }),
+          timeoutPromise(12000)
+        ]);
+        let text = '';
+        try { text = await res.text(); } catch {}
+        const preview = text.slice(0, 120).replace(/\s+/g, ' ');
+        addRow('GASテストURL', res.ok ? 'OK' : 'NG', `${ms} ms`, `status: ${res.status} / ${preview}`);
+      } catch (e) {
+        addRow('GASテストURL', 'NG', '-', e.message);
+      }
+    }
+
+    async function checkInternet() {
+      try {
+        const { res, ms } = await Promise.race([
+          timedFetch('https://www.gstatic.com/generate_204', { method: 'GET', mode: 'cors' }),
+          timeoutPromise(10000)
+        ]);
+        addRow('外部疎通', (res.status === 204 || res.ok) ? 'OK' : 'WARN', `${ms} ms`, `status: ${res.status}`);
+      } catch (e) {
+        addRow('外部疎通', 'NG', '-', e.message);
+      }
+    }
+
+    async function runChecks() {
+      resultBody.innerHTML = '';
+      setTerminalInfo();
+      timeText.textContent = `実行時刻: ${new Date().toLocaleString('ja-JP')}`;
+      runBtn.disabled = true;
+      runBtn.textContent = '確認中…';
+      try {
+        await checkInternet();
+        await checkAppTop();
+        await checkGasTest();
+      } finally {
+        runBtn.disabled = false;
+        runBtn.textContent = 'チェック開始';
+      }
+    }
+
+    copyBtn.addEventListener('click', async () => {
+      const text = [
+        timeText.textContent,
+        `online: ${onlineState.textContent}`,
+        `ua: ${uaText.textContent}`,
+        `network: ${netInfo.textContent}`,
+        ...Array.from(resultBody.querySelectorAll('tr')).map(tr =>
+          Array.from(tr.children).map(td => td.textContent).join(' | ')
+        )
+      ].join('\n');
+      await navigator.clipboard.writeText(text);
+      alert('結果をコピーしました');
+    });
+
+    window.addEventListener('online', setTerminalInfo);
+    window.addEventListener('offline', setTerminalInfo);
+    setTerminalInfo();
+  </script>
+</body>
+</html>

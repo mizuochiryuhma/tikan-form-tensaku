@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>水資源 課題提出＆AI採点</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+
+<body>
+  <main class="wrap">
+    <header>
+      <h1>水資源 課題提出 ＆ AI採点</h1>
+      <p class="sub">番号・氏名・答案を入力して送信してください（150〜250字推奨）。</p>
+    </header>
+
+    <section class="card">
+      <form id="submitForm">
+
+        <!-- クラス番号 -->
+        <div class="mt">
+          <div class="label">クラス番号</div>
+          <div class="classGrid">
+            <label><input type="radio" name="classNo" value="1組" required>1組</label>
+            <label><input type="radio" name="classNo" value="2組">2組</label>
+            <label><input type="radio" name="classNo" value="3組">3組</label>
+            <label><input type="radio" name="classNo" value="4組">4組</label>
+            <label><input type="radio" name="classNo" value="5組">5組</label>
+            <label><input type="radio" name="classNo" value="6組">6組</label>
+          </div>
+        </div>
+
+        <!-- 出席番号・氏名 -->
+        <div class="grid">
+          <label>
+            出席番号（半角数字）
+            <input id="studentNo" name="studentNo" inputmode="numeric" pattern="^[0-9]{1,3}$" required />
+          </label>
+
+          <label>
+            氏名
+            <input id="studentName" name="studentName" required />
+          </label>
+        </div>
+
+        <!-- 答案 -->
+        <label class="mt">
+          答案（主張→根拠→結論）
+          <textarea id="answer" name="answer" rows="10" required></textarea>
+        </label>
+
+        <!-- 送信 -->
+        <div class="row mt">
+          <div class="hint" id="countHint">0 文字</div>
+          <button id="sendBtn" type="submit">送信してAI採点</button>
+        </div>
+
+      </form>
+    </section>
+
+    <!-- 採点結果 -->
+    <section class="card" id="resultCard" hidden>
+      <h2>AI採点とアドバイス</h2>
+
+      <div class="scoreBox">
+        <div class="scoreMain">
+          <div class="scoreLabel">総合得点（100点満点）</div>
+          <div class="scoreValue" id="totalScore">-</div>
+        </div>
+
+        <div class="scoreBreak">
+          <div><span>A 構造化</span><b id="scoreA">-</b><small>/30</small></div>
+          <div><span>B 根拠</span><b id="scoreB">-</b><small>/20</small></div>
+          <div><span>C 主張の適切さ</span><b id="scoreC">-</b><small>/30</small></div>
+          <div><span>D 表記・字数</span><b id="scoreD">-</b><small>/20</small></div>
+        </div>
+      </div>
+
+      <h3 class="mt">アドバイス</h3>
+      <ul id="adviceList"></ul>
+
+      <details class="mt">
+        <summary>判定メモ（任意）</summary>
+        <pre id="debugNote"></pre>
+      </details>
+    </section>
+
+    <!-- エラー表示 -->
+    <section class="card error" id="errorCard" hidden>
+      <h2>送信に失敗しました</h2>
+      <p id="errorText"></p>
+    </section>
+
+  </main>
+
+  <script src="./script.js?v=20260213"></script>
+</body>
+</html>
