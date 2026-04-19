@@ -68,7 +68,7 @@
   </main>
 
   <script>
-    const APP_URL = 'https://mizuochiryuhma.github.io/tikan-form/';
+    const APP_URL = 'https://mizuochiryuhma.github.io/tikan-form-tensaku/';
     const GAS_TEST_URL = 'https://script.google.com/a/macros/gs.nein.ed.jp/s/AKfycbwRHvPkg4WTPxV4C5l5zfsegM2LWtw_hpbtwqHqCERPPK8A0uQeCILshM4Yg55_njzG/exec?test=1';
 
     const runBtn = document.getElementById('runBtn');
@@ -131,31 +131,51 @@
       }
     }
 
+    function jsonpCheck(url, timeout = 12000) {
+      return new Promise((resolve, reject) => {
+        const cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+        const script = document.createElement('script');
+        const start = performance.now();
+
+        const timer = setTimeout(() => {
+          cleanup();
+          reject(new Error('timeout'));
+        }, timeout);
+
+        function cleanup() {
+          clearTimeout(timer);
+          if (script.parentNode) script.parentNode.removeChild(script);
+          try { delete window[cbName]; } catch {}
+        }
+
+        window[cbName] = (data) => {
+          const ms = Math.round(performance.now() - start);
+          cleanup();
+          resolve({ data, ms });
+        };
+
+        script.onerror = () => {
+          cleanup();
+          reject(new Error('script load error'));
+        };
+
+        script.src = url + '&callback=' + cbName;
+        document.body.appendChild(script);
+      });
+    }
+
     async function checkGasTest() {
       try {
-        const { res, ms } = await Promise.race([
-          timedFetch(GAS_TEST_URL, { method: 'GET', mode: 'cors' }),
-          timeoutPromise(12000)
-        ]);
-        let text = '';
-        try { text = await res.text(); } catch {}
-        const preview = text.slice(0, 120).replace(/\s+/g, ' ');
-        addRow('GASテストURL', res.ok ? 'OK' : 'NG', `${ms} ms`, `status: ${res.status} / ${preview}`);
+        const { data, ms } = await jsonpCheck(GAS_TEST_URL);
+        const preview = JSON.stringify(data).slice(0, 120);
+        addRow('GASテストURL', 'OK', `${ms} ms`, preview);
       } catch (e) {
         addRow('GASテストURL', 'NG', '-', e.message);
       }
     }
 
     async function checkInternet() {
-      try {
-        const { res, ms } = await Promise.race([
-          timedFetch('https://www.gstatic.com/generate_204', { method: 'GET', mode: 'cors' }),
-          timeoutPromise(10000)
-        ]);
-        addRow('外部疎通', (res.status === 204 || res.ok) ? 'OK' : 'WARN', `${ms} ms`, `status: ${res.status}`);
-      } catch (e) {
-        addRow('外部疎通', 'NG', '-', e.message);
-      }
+      addRow('外部疎通', 'WARN', '-', '参考表示を停止中');
     }
 
     async function runChecks() {
@@ -187,6 +207,7 @@
       await navigator.clipboard.writeText(text);
       alert('結果をコピーしました');
     });
+
     runBtn.addEventListener('click', runChecks);
     window.addEventListener('online', setTerminalInfo);
     window.addEventListener('offline', setTerminalInfo);
