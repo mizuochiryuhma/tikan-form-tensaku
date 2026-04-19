@@ -1,5 +1,5 @@
 // ★ Apps Script WebアプリURL
-const ENDPOINT = "https://script.google.com/a/macros/gs.nein.ed.jp/s/AKfycbwUvEZu7Kuiq7VQ1URKwrhFO-FU1rvbF7jiexR0qQ1zIaem3PXJsp0HxqUHi5T2VHk2ZA/exec";
+const ENDPOINT = "https://script.google.com/a/macros/gs.nein.ed.jp/s/AKfycbwV_C_xS0WX_hCIoPv6uYrnX6eedclw8SzVkN1EWYOW8FkCwEVix9Bq8Kw1HN016aTz/exec";
 
 const form = document.getElementById("submitForm");
 const studentNoEl = document.getElementById("studentNo");
